@@ -23,11 +23,141 @@ from PIL import Image, ImageTk
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-MOZJPEG_VERSION = "4.1.5"
-MOZJPEG_URL = (
-    f"https://github.com/mozilla/mozjpeg/releases/download/"
-    f"v{MOZJPEG_VERSION}/mozjpeg-{MOZJPEG_VERSION}-win64.exe"
-)
+# GitHub API endpoint used to discover the newest MozJPEG release that
+# actually provides a Windows x64 binary.  We deliberately do not use
+# /releases/latest directly because the newest release may not contain a
+# Windows binary (this has happened with MozJPEG releases).
+MOZJPEG_RELEASES_API = "https://api.github.com/repos/mozilla/mozjpeg/releases"
+MOZJPEG_RELEASES_PAGE_SIZE = 30
+
+
+def _asset_score(asset_name: str) -> int:
+    """Return a score for Windows x64 MozJPEG binary candidates."""
+    name = asset_name.lower()
+    if not name.endswith((".exe", ".zip")):
+        return -1
+
+    if any(x in name for x in ("source", "src", "linux", "macos", "darwin", "osx")):
+        return -1
+    if not any(x in name for x in ("win", "windows")):
+        return -1
+    if not any(x in name for x in ("x64", "win64", "amd64", "64-bit", "64bit")):
+        return -1
+
+    score = 0
+    if name.endswith(".exe"):
+        score += 100
+    if "win64" in name or "windows-x64" in name or "windows_x64" in name:
+        score += 20
+    if "amd64" in name or "x64" in name:
+        score += 10
+    if "setup" in name or "installer" in name:
+        score += 5
+    return score
+
+
+def _find_cjpeg_in_directory(directory: Path) -> Path | None:
+    """Find cjpeg.exe recursively below a directory."""
+    direct = directory / "cjpeg.exe"
+    if direct.is_file():
+        return direct
+    try:
+        for candidate in directory.rglob("cjpeg.exe"):
+            if candidate.is_file():
+                return candidate
+    except OSError:
+        pass
+    return None
+
+
+def get_latest_windows_mozjpeg_asset():
+    """Return the newest available Windows x64 MozJPEG release asset."""
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "MozJPEGCompressor/1.0",
+    }
+
+    releases = []
+    for page in range(1, 4):
+        response = requests.get(
+            MOZJPEG_RELEASES_API,
+            params={"per_page": MOZJPEG_RELEASES_PAGE_SIZE, "page": page},
+            headers=headers,
+            timeout=30,
+        )
+        response.raise_for_status()
+        batch = response.json()
+        if not batch:
+            break
+        releases.extend(batch)
+        if len(batch) < MOZJPEG_RELEASES_PAGE_SIZE:
+            break
+
+    for release in releases:
+        if release.get("draft") or release.get("prerelease"):
+            continue
+
+        candidates = []
+        for asset in release.get("assets", []):
+            score = _asset_score(asset.get("name", ""))
+            if score >= 0 and asset.get("browser_download_url"):
+                candidates.append((score, asset))
+
+        if candidates:
+            candidates.sort(key=lambda item: item[0], reverse=True)
+            asset = candidates[0][1]
+            return (
+                release.get("tag_name", "unknown"),
+                asset["name"],
+                asset["browser_download_url"],
+            )
+
+    raise RuntimeError(
+        "Não foi encontrado um binário Windows x64 do MozJPEG nas releases "
+        "públicas disponíveis no GitHub."
+    )
+
+
+def _safe_extract_zip(zip_path: Path, destination: Path) -> None:
+    """Extract a ZIP while protecting against Zip Slip path traversal."""
+    import zipfile
+
+    destination = destination.resolve()
+    with zipfile.ZipFile(zip_path) as zf:
+        for member in zf.infolist():
+            target = (destination / member.filename).resolve()
+            if target != destination and destination not in target.parents:
+                raise RuntimeError("O arquivo ZIP contém um caminho inválido.")
+        zf.extractall(destination)
+
+
+def _verify_cjpeg(cjpeg: Path) -> Path:
+    """Verify that cjpeg.exe exists and can be launched."""
+    if not cjpeg or not cjpeg.is_file():
+        raise RuntimeError("cjpeg.exe não foi encontrado após a instalação.")
+
+    try:
+        result = subprocess.run(
+            [str(cjpeg), "-version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=15,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(
+            f"cjpeg.exe foi encontrado mas não pôde ser executado: {exc}"
+        ) from exc
+
+    if result.returncode != 0:
+        output = (result.stdout or result.stderr or "").strip()
+        raise RuntimeError(
+            "cjpeg.exe foi encontrado mas não respondeu corretamente"
+            + (f": {output}" if output else ".")
+        )
+
+    return cjpeg
 APP_DIR = Path(os.getenv("APPDATA", ".")) / "MozJPEGCompressor"
 BIN_DIR = APP_DIR / "bin"
 CJPEG_EXE = BIN_DIR / "cjpeg.exe"
@@ -254,7 +384,7 @@ class DownloadWindow(ctk.CTkToplevel):
         super().__init__(parent)
         self._on_done = on_done
         self.title("Instalar MozJPEG")
-        self.geometry("440x210")
+        self.geometry("500x240")
         self.resizable(False, False)
         self.grab_set()
         self._build()
@@ -268,66 +398,138 @@ class DownloadWindow(ctk.CTkToplevel):
         ).pack(pady=(24, 4))
         ctk.CTkLabel(
             self,
-            text="A descarregar e instalar automaticamente...",
+            text="A procurar e instalar automaticamente a versão disponível mais recente...",
             font=("Segoe UI", 10),
             text_color=C_MUTED,
         ).pack(pady=(0, 16))
         self._lbl = ctk.CTkLabel(self, text="A preparar...", font=("Segoe UI", 10))
         self._lbl.pack(pady=(0, 8))
-        self._bar = ctk.CTkProgressBar(self, width=360, progress_color=C_ACCENT)
+        self._bar = ctk.CTkProgressBar(self, width=420, progress_color=C_ACCENT)
         self._bar.set(0)
         self._bar.pack(pady=(0, 4))
 
     def _set(self, text: str, val: float | None = None):
         self._lbl.configure(text=text)
         if val is not None:
-            self._bar.set(val)
+            self._bar.set(max(0.0, min(1.0, val)))
 
-    def _run(self):
-        try:
-            self.after(0, self._set, "A descarregar MozJPEG...", 0.05)
-            BIN_DIR.mkdir(parents=True, exist_ok=True)
-
-            r = requests.get(MOZJPEG_URL, stream=True, timeout=90)
+    def _download(self, url: str, destination: Path):
+        """Download a file with progress updates and basic sanity checks."""
+        headers = {"User-Agent": "MozJPEGCompressor/1.0"}
+        with requests.get(url, stream=True, timeout=90, headers=headers) as r:
             r.raise_for_status()
-            total = int(r.headers.get("content-length", 1))
-            done = 0
+            total_header = r.headers.get("content-length")
+            try:
+                total = int(total_header) if total_header else 0
+            except ValueError:
+                total = 0
 
-            with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
-                tmp = Path(f.name)
+            done = 0
+            with destination.open("wb") as f:
                 for chunk in r.iter_content(65536):
                     if chunk:
                         f.write(chunk)
                         done += len(chunk)
-                        self.after(0, self._bar.set, done / total * 0.70)
+                        if total:
+                            self.after(0, self._bar.set, min(0.80, done / total * 0.80))
 
-            self.after(
-                0, self._set, "A instalar (isto pode demorar alguns segundos)...", 0.75
-            )
+        if destination.stat().st_size == 0:
+            raise RuntimeError("O download do MozJPEG resultou num ficheiro vazio.")
 
-            # Instalação silenciosa NSIS — /S = silent, /D = destino
+    def _install_asset(self, asset_path: Path, asset_name: str) -> Path:
+        """Install an EXE installer or extract a ZIP containing cjpeg.exe."""
+        name = asset_name.lower()
+
+        if name.endswith(".zip"):
+            self.after(0, self._set, "A extrair MozJPEG...", 0.82)
+            extract_dir = BIN_DIR / "_download_extract"
+            if extract_dir.exists():
+                shutil.rmtree(extract_dir, ignore_errors=True)
+            extract_dir.mkdir(parents=True, exist_ok=True)
+
+            try:
+                _safe_extract_zip(asset_path, extract_dir)
+                found = _find_cjpeg_in_directory(extract_dir)
+                if not found:
+                    raise RuntimeError("O ZIP foi descarregado, mas não contém cjpeg.exe.")
+
+                BIN_DIR.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(found, CJPEG_EXE)
+                for companion in found.parent.iterdir():
+                    if companion.is_file() and companion.suffix.lower() in {".dll", ".exe"}:
+                        if companion.name.lower() != "cjpeg.exe":
+                            shutil.copy2(companion, BIN_DIR / companion.name)
+            finally:
+                shutil.rmtree(extract_dir, ignore_errors=True)
+
+            return CJPEG_EXE
+
+        if name.endswith(".exe"):
+            self.after(0, self._set, "A instalar MozJPEG...", 0.82)
+            BIN_DIR.mkdir(parents=True, exist_ok=True)
             bin_dir_str = str(BIN_DIR).rstrip("\\")
-            subprocess.run(
-                [str(tmp), "/S", f"/D={bin_dir_str}"],
+            result = subprocess.run(
+                [str(asset_path), "/S", f"/D={bin_dir_str}"],
                 timeout=180,
+                check=False,
             )
-            tmp.unlink(missing_ok=True)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"O instalador do MozJPEG terminou com código {result.returncode}."
+                )
+            return CJPEG_EXE
 
-            self.after(0, self._set, "A verificar instalação...", 0.92)
+        raise RuntimeError(f"Formato de MozJPEG não suportado: {asset_name}")
 
+    def _run(self):
+        tmp = None
+        try:
+            BIN_DIR.mkdir(parents=True, exist_ok=True)
+
+            existing = find_cjpeg()
+            if existing:
+                self.after(0, self._set, "MozJPEG já está instalado.", 1.0)
+                self.after(500, self._finish, True)
+                return
+
+            self.after(0, self._set, "A procurar a versão Windows mais recente...", 0.05)
+            tag, asset_name, url = get_latest_windows_mozjpeg_asset()
+            self.after(
+                0,
+                self._set,
+                f"A descarregar {tag} ({asset_name})...",
+                0.10,
+            )
+
+            suffix = ".zip" if asset_name.lower().endswith(".zip") else ".exe"
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+                tmp = Path(f.name)
+
+            self._download(url, tmp)
+
+            self.after(0, self._set, "A instalar e verificar MozJPEG...", 0.85)
+            self._install_asset(tmp, asset_name)
+
+            self.after(0, self._set, "A verificar cjpeg.exe...", 0.94)
             cjpeg = find_cjpeg()
             if not cjpeg:
                 raise RuntimeError(
-                    "cjpeg.exe não encontrado após instalação.\n"
-                    "Tenta instalar manualmente em:\n"
-                    "https://github.com/mozilla/mozjpeg/releases"
+                    "cjpeg.exe não foi encontrado após a instalação. "
+                    "A estrutura da release do MozJPEG pode ter mudado."
                 )
+            _verify_cjpeg(cjpeg)
 
-            self.after(0, self._set, "MozJPEG instalado com sucesso!", 1.0)
+            self.after(0, self._set, f"MozJPEG {tag} instalado com sucesso!", 1.0)
             self.after(900, self._finish, True)
 
         except Exception as e:
             self.after(0, self._fail, str(e))
+        finally:
+            if tmp:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def _finish(self, success: bool):
         on_done = self._on_done
@@ -1438,13 +1640,14 @@ class App(ctk.CTk):
             row = idx // COLS
             self._grid_inner.columnconfigure(col, weight=0)
 
-            cell = tk.Frame(
+            cell = ctk.CTkFrame(
                 self._grid_inner,
-                bg=C_CARD,
+                fg_color=C_CARD,
+                border_color=C_BORDER,
+                border_width=1,
                 width=CELL_W,
                 height=th + 54,
-                highlightbackground=C_BORDER,
-                highlightthickness=1,
+                corner_radius=0,
             )
             cell.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
             cell.grid_propagate(False)
