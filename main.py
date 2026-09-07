@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-MozJPEG GUI Compressor — Windows
-Comprime imagens JPEG/PNG com MozJPEG via interface gráfica.
+MozJPEG GUI Compressor - Windows
+Compress JPEG/PNG images with MozJPEG through a graphical interface.
 
-Dependências: customtkinter, Pillow, requests
+Dependencies: customtkinter, Pillow, requests
 """
 
 import customtkinter as ctk
@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 from PIL import Image, ImageTk
 
-# ─── Configuração global ──────────────────────────────────────────────────────
+# ─── Global configuration ─────────────────────────────────────────────────────
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -32,7 +32,7 @@ MOZJPEG_RELEASES_PAGE_SIZE = 30
 
 
 def _asset_score(asset_name: str) -> int:
-    """Return a score for Windows x64 MozJPEG binary candidates."""
+    """Rank downloadable Windows x64 assets, rejecting unrelated archives."""
     name = asset_name.lower()
     if not name.endswith((".exe", ".zip")):
         return -1
@@ -71,7 +71,7 @@ def _find_cjpeg_in_directory(directory: Path) -> Path | None:
 
 
 def get_latest_windows_mozjpeg_asset():
-    """Return the newest available Windows x64 MozJPEG release asset."""
+    """Query GitHub and return ``(tag, filename, download_url)`` for a release."""
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "MozJPEGCompressor/1.0",
@@ -113,13 +113,13 @@ def get_latest_windows_mozjpeg_asset():
             )
 
     raise RuntimeError(
-        "Não foi encontrado um binário Windows x64 do MozJPEG nas releases "
-        "públicas disponíveis no GitHub."
+        "No Windows x64 MozJPEG binary was found in the available "
+        "public GitHub releases."
     )
 
 
 def _safe_extract_zip(zip_path: Path, destination: Path) -> None:
-    """Extract a ZIP while protecting against Zip Slip path traversal."""
+    """Extract a ZIP after rejecting members that escape ``destination``."""
     import zipfile
 
     destination = destination.resolve()
@@ -127,14 +127,14 @@ def _safe_extract_zip(zip_path: Path, destination: Path) -> None:
         for member in zf.infolist():
             target = (destination / member.filename).resolve()
             if target != destination and destination not in target.parents:
-                raise RuntimeError("O arquivo ZIP contém um caminho inválido.")
+                raise RuntimeError("The ZIP file contains an invalid path.")
         zf.extractall(destination)
 
 
 def _verify_cjpeg(cjpeg: Path) -> Path:
-    """Verify that cjpeg.exe exists and can be launched."""
+    """Verify that ``cjpeg.exe`` exists and returns success for ``-version``."""
     if not cjpeg or not cjpeg.is_file():
-        raise RuntimeError("cjpeg.exe não foi encontrado após a instalação.")
+        raise RuntimeError("cjpeg.exe was not found after installation.")
 
     try:
         result = subprocess.run(
@@ -147,13 +147,13 @@ def _verify_cjpeg(cjpeg: Path) -> Path:
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise RuntimeError(
-            f"cjpeg.exe foi encontrado mas não pôde ser executado: {exc}"
+            f"cjpeg.exe was found but could not be executed: {exc}"
         ) from exc
 
     if result.returncode != 0:
         output = (result.stdout or result.stderr or "").strip()
         raise RuntimeError(
-            "cjpeg.exe foi encontrado mas não respondeu corretamente"
+            "cjpeg.exe was found but did not respond correctly"
             + (f": {output}" if output else ".")
         )
 
@@ -164,7 +164,7 @@ CJPEG_EXE = BIN_DIR / "cjpeg.exe"
 EXPORT_FOLDER = "export"
 SUPPORTED = {".jpg", ".jpeg", ".png"}
 
-# Paleta de cores
+# Color palette
 C_BG = "#0d0d14"
 C_SURFACE = "#13131e"
 C_CARD = "#191926"
@@ -178,101 +178,101 @@ C_SUBTLE = "#3a3a58"
 C_OK = "#22c55e"
 C_ERR = "#ef4444"
 C_WARN = "#f59e0b"
-C_SELECTED = "#2d4a2c"  # background verde escuro para ficheiros selecionados
+C_SELECTED = "#2d4a2c"  # dark green background for selected files
 
-# ─── Textos de ajuda ─────────────────────────────────────────────────────────
+# ─── Help text ────────────────────────────────────────────────────────────────
 
 TIPS = {
     "quality": (
-        "Qualidade da imagem final (0–100).\n\n"
-        "75–85 → bom equilíbrio para web\n"
-        "90+   → alta fidelidade, ficheiros maiores\n"
-        "< 60  → artefactos visíveis\n\n"
-        "MozJPEG produz ficheiros ~10–20% menores\n"
-        "que o JPEG padrão à mesma qualidade."
+        "Final image quality (0-100).\n\n"
+        "75-85 -> good balance for the web\n"
+        "90+   -> high fidelity, larger files\n"
+        "< 60  -> visible artifacts\n\n"
+        "MozJPEG produces files ~10-20% smaller\n"
+        "than standard JPEG at the same quality."
     ),
     "progressive": (
-        "JPEG progressivo: a imagem carrega gradualmente\n"
-        "em browsers, mostrando uma prévia desfocada\n"
-        "antes de terminar de carregar.\n\n"
-        "Recomendado para imagens web."
+        "Progressive JPEG: the image loads gradually\n"
+        "in browsers, showing a blurred preview\n"
+        "before loading is complete.\n\n"
+        "Recommended for web images."
     ),
     "chroma": (
-        "Subamostragem de croma — como a informação\n"
-        "de cor é armazenada.\n\n"
-        "4:2:0 (2x2) → menor tamanho, pequena perda de cor\n"
-        "4:2:2 (2x1) → bom compromisso\n"
-        "4:4:4 (1x1) → fidelidade máxima, ficheiros maiores\n\n"
-        "Para fotografia geral, 4:2:0 é suficiente."
+        "Chroma subsampling - how color information\n"
+        "is stored.\n\n"
+        "4:2:0 (2x2) -> smaller files, minor color loss\n"
+        "4:2:2 (2x1) -> good compromise\n"
+        "4:4:4 (1x1) -> maximum fidelity, larger files\n\n"
+        "For general photography, 4:2:0 is sufficient."
     ),
     "dct": (
-        "Método de cálculo da DCT\n"
+        "DCT calculation method\n"
         "(Discrete Cosine Transform).\n\n"
-        "int   → rápido, qualidade suficiente (recomendado)\n"
-        "float → mais lento, ligeiramente melhor\n"
-        "fast  → o mais rápido, qualidade inferior"
+        "int   -> fast, sufficient quality (recommended)\n"
+        "float -> slower, slightly better\n"
+        "fast  -> fastest, lower quality"
     ),
     "optimize": (
-        "Otimiza as tabelas de Huffman para cada\n"
-        "imagem individualmente.\n\n"
-        "Reduz o tamanho 3–5% sem qualquer perda\n"
-        "de qualidade. Torna o processo ligeiramente\n"
-        "mais lento."
+        "Optimizes Huffman tables for each\n"
+        "individual image.\n\n"
+        "Reduces file size by 3-5% with no quality loss.\n"
+        "Makes processing slightly slower."
     ),
     "grayscale": (
-        "Converte a imagem para escala de cinzentos.\n"
-        "Remove toda a informação de cor.\n\n"
-        "Útil para documentos, imagens monocromáticas\n"
-        "ou quando a cor não é relevante."
+        "Converts the image to grayscale.\n"
+        "Removes all color information.\n\n"
+        "Useful for documents, monochrome images,\n"
+        "or when color is not relevant."
     ),
     "quant_table": (
-        "Tabela de quantização — define como os detalhes\n"
-        "de frequência são descartados na compressão.\n\n"
-        "0 → tabela JPEG padrão\n"
-        "1 → tabela MozJPEG otimizada (recomendado)\n"
-        "2 → tabela MozJPEG alternativa\n"
-        "3+ → tabelas experimentais"
+        "Quantization table - defines how frequency\n"
+        "details are discarded during compression.\n\n"
+        "0 -> standard JPEG table\n"
+        "1 -> optimized MozJPEG table (recommended)\n"
+        "2 -> alternative MozJPEG table\n"
+        "3+ -> experimental tables"
     ),
     "smooth": (
-        "Suavização aplicada à imagem antes de comprimir\n"
+        "Smoothing applied to the image before compression\n"
         "(0–100).\n\n"
-        "0     → sem suavização\n"
-        "10–20 → reduz ruído de sensor\n"
-        "100   → suavização máxima (pode criar borrão)\n\n"
-        "Útil para imagens com muito ruído."
+        "0     -> no smoothing\n"
+        "10-20 -> reduces sensor noise\n"
+        "100   -> maximum smoothing (may blur the image)\n\n"
+        "Useful for noisy images."
     ),
     "recursive": (
-        "Processa também imagens em subpastas.\n\n"
-        "A estrutura de subpastas é replicada dentro\n"
-        "da pasta 'export'.\n\n"
-        "Exemplo:\n"
+        "Also process images in subfolders.\n\n"
+        "The subfolder structure is replicated inside\n"
+        "the 'export' folder.\n\n"
+        "Example:\n"
         "Fotos/2024/jan/img.jpg\n"
         "→ Fotos/export/2024/jan/img_compressed_80.jpg"
     ),
     "min_size": (
-        "Ignora ficheiros abaixo deste tamanho.\n\n"
-        "Imagens pequenas já foram provavelmente\n"
-        "comprimidas na origem — o MozJPEG raramente\n"
-        "consegue reduzi-las sem perda visível.\n\n"
-        "100 KB é um bom valor por defeito."
+        "Skip files below this size.\n\n"
+        "Small images were probably already compressed\n"
+        "at the source - MozJPEG rarely reduces them\n"
+        "without visible loss.\n\n"
+        "100 KB is a good default value."
     ),
     "resize": (
-        "Redimensiona a imagem antes de comprimir,\n"
-        "mantendo o ratio width:height original.\n\n"
-        "O valor define o lado maior (largura ou altura,\n"
-        "conforme a orientação da imagem).\n\n"
-        "Ex: 2000px numa foto 6000×4000\n"
-        "→ resultado: 2000×1333\n\n"
-        "Feito antes da compressão para evitar\n"
-        "dupla degradação de qualidade."
+        "Resize the image before compression,\n"
+        "preserving the original width:height ratio.\n\n"
+        "The value defines the longest side (width or height,\n"
+        "depending on the image orientation).\n\n"
+        "Example: 2000px on a 6000x4000 photo\n"
+        "-> result: 2000x1333\n\n"
+        "Done before compression to avoid\n"
+        "double quality degradation."
     ),
 }
 
 
-# ─── Utilitários ─────────────────────────────────────────────────────────────
+# ─── Utilities ────────────────────────────────────────────────────────────────
 
 
 def fmt_size(n: int) -> str:
+    """Format a byte count for display in the results table and preview."""
     if n < 1024:
         return f"{n} B"
     if n < 1024**2:
@@ -281,17 +281,17 @@ def fmt_size(n: int) -> str:
 
 
 def find_cjpeg() -> Path | None:
-    """Procura cjpeg.exe no diretório gerido e depois no PATH do sistema."""
+    """Find MozJPEG in the managed folder, common install folders, or PATH."""
     if CJPEG_EXE.exists():
         return CJPEG_EXE
-    # Procura em localizações comuns de instalação do MozJPEG
+    # Check common MozJPEG installation locations.
     fallbacks = [
         Path("C:/Program Files/Mozilla/MozJPEG/cjpeg.exe"),
         Path("C:/Program Files (x86)/Mozilla/MozJPEG/cjpeg.exe"),
     ]
     for p in fallbacks:
         if p.exists():
-            # Copia para o nosso diretório gerido
+            # Copy the executable into the managed application directory.
             BIN_DIR.mkdir(parents=True, exist_ok=True)
             shutil.copy2(p, CJPEG_EXE)
             return CJPEG_EXE
@@ -339,7 +339,7 @@ class Tooltip:
             justify="left",
             bg="#1e1e2e",
             fg="#c8c8e8",
-            font=("Segoe UI", 9),
+            font=("Segoe UI", 12),
             padx=12,
             pady=8,
             wraplength=290,
@@ -359,7 +359,7 @@ class Tooltip:
 
 
 def qmark(parent: tk.Widget, key: str, **kw) -> ctk.CTkButton:
-    """Cria um botão (?) com tooltip explicativo."""
+    """Create a help button with the tooltip associated with ``key``."""
     b = ctk.CTkButton(
         parent,
         text="?",
@@ -376,14 +376,16 @@ def qmark(parent: tk.Widget, key: str, **kw) -> ctk.CTkButton:
     return b
 
 
-# ─── Janela de download ───────────────────────────────────────────────────────
+# ─── Download window ──────────────────────────────────────────────────────────
 
 
 class DownloadWindow(ctk.CTkToplevel):
+    """Download and install MozJPEG without blocking the main Tk event loop."""
+
     def __init__(self, parent: ctk.CTk, on_done):
         super().__init__(parent)
         self._on_done = on_done
-        self.title("Instalar MozJPEG")
+        self.title("Install MozJPEG")
         self.geometry("500x240")
         self.resizable(False, False)
         self.grab_set()
@@ -393,16 +395,16 @@ class DownloadWindow(ctk.CTkToplevel):
     def _build(self):
         ctk.CTkLabel(
             self,
-            text="MozJPEG não encontrado",
+            text="MozJPEG not found",
             font=("Segoe UI", 14, "bold"),
         ).pack(pady=(24, 4))
         ctk.CTkLabel(
             self,
-            text="A procurar e instalar automaticamente a versão disponível mais recente...",
+            text="Searching for and installing the latest available version...",
             font=("Segoe UI", 10),
             text_color=C_MUTED,
         ).pack(pady=(0, 16))
-        self._lbl = ctk.CTkLabel(self, text="A preparar...", font=("Segoe UI", 10))
+        self._lbl = ctk.CTkLabel(self, text="Preparing...", font=("Segoe UI", 10))
         self._lbl.pack(pady=(0, 8))
         self._bar = ctk.CTkProgressBar(self, width=420, progress_color=C_ACCENT)
         self._bar.set(0)
@@ -414,7 +416,7 @@ class DownloadWindow(ctk.CTkToplevel):
             self._bar.set(max(0.0, min(1.0, val)))
 
     def _download(self, url: str, destination: Path):
-        """Download a file with progress updates and basic sanity checks."""
+        """Stream a release asset to disk and report progress on the UI thread."""
         headers = {"User-Agent": "MozJPEGCompressor/1.0"}
         with requests.get(url, stream=True, timeout=90, headers=headers) as r:
             r.raise_for_status()
@@ -434,14 +436,14 @@ class DownloadWindow(ctk.CTkToplevel):
                             self.after(0, self._bar.set, min(0.80, done / total * 0.80))
 
         if destination.stat().st_size == 0:
-            raise RuntimeError("O download do MozJPEG resultou num ficheiro vazio.")
+            raise RuntimeError("The MozJPEG download produced an empty file.")
 
     def _install_asset(self, asset_path: Path, asset_name: str) -> Path:
-        """Install an EXE installer or extract a ZIP containing cjpeg.exe."""
+        """Install an EXE or extract a ZIP, returning the managed cjpeg path."""
         name = asset_name.lower()
 
         if name.endswith(".zip"):
-            self.after(0, self._set, "A extrair MozJPEG...", 0.82)
+            self.after(0, self._set, "Extracting MozJPEG...", 0.82)
             extract_dir = BIN_DIR / "_download_extract"
             if extract_dir.exists():
                 shutil.rmtree(extract_dir, ignore_errors=True)
@@ -451,7 +453,7 @@ class DownloadWindow(ctk.CTkToplevel):
                 _safe_extract_zip(asset_path, extract_dir)
                 found = _find_cjpeg_in_directory(extract_dir)
                 if not found:
-                    raise RuntimeError("O ZIP foi descarregado, mas não contém cjpeg.exe.")
+                    raise RuntimeError("The downloaded ZIP does not contain cjpeg.exe.")
 
                 BIN_DIR.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(found, CJPEG_EXE)
@@ -465,7 +467,7 @@ class DownloadWindow(ctk.CTkToplevel):
             return CJPEG_EXE
 
         if name.endswith(".exe"):
-            self.after(0, self._set, "A instalar MozJPEG...", 0.82)
+            self.after(0, self._set, "Installing MozJPEG...", 0.82)
             BIN_DIR.mkdir(parents=True, exist_ok=True)
             bin_dir_str = str(BIN_DIR).rstrip("\\")
             result = subprocess.run(
@@ -475,29 +477,30 @@ class DownloadWindow(ctk.CTkToplevel):
             )
             if result.returncode != 0:
                 raise RuntimeError(
-                    f"O instalador do MozJPEG terminou com código {result.returncode}."
+                    f"The MozJPEG installer exited with code {result.returncode}."
                 )
             return CJPEG_EXE
 
-        raise RuntimeError(f"Formato de MozJPEG não suportado: {asset_name}")
+        raise RuntimeError(f"Unsupported MozJPEG format: {asset_name}")
 
     def _run(self):
+        """Coordinate discovery, download, installation, and verification."""
         tmp = None
         try:
             BIN_DIR.mkdir(parents=True, exist_ok=True)
 
             existing = find_cjpeg()
             if existing:
-                self.after(0, self._set, "MozJPEG já está instalado.", 1.0)
+                self.after(0, self._set, "MozJPEG is already installed.", 1.0)
                 self.after(500, self._finish, True)
                 return
 
-            self.after(0, self._set, "A procurar a versão Windows mais recente...", 0.05)
+            self.after(0, self._set, "Searching for the latest Windows version...", 0.05)
             tag, asset_name, url = get_latest_windows_mozjpeg_asset()
             self.after(
                 0,
                 self._set,
-                f"A descarregar {tag} ({asset_name})...",
+                f"Downloading {tag} ({asset_name})...",
                 0.10,
             )
 
@@ -507,19 +510,19 @@ class DownloadWindow(ctk.CTkToplevel):
 
             self._download(url, tmp)
 
-            self.after(0, self._set, "A instalar e verificar MozJPEG...", 0.85)
+            self.after(0, self._set, "Installing and verifying MozJPEG...", 0.85)
             self._install_asset(tmp, asset_name)
 
-            self.after(0, self._set, "A verificar cjpeg.exe...", 0.94)
+            self.after(0, self._set, "Verifying cjpeg.exe...", 0.94)
             cjpeg = find_cjpeg()
             if not cjpeg:
                 raise RuntimeError(
-                    "cjpeg.exe não foi encontrado após a instalação. "
-                    "A estrutura da release do MozJPEG pode ter mudado."
+                    "cjpeg.exe was not found after installation. "
+                    "The MozJPEG release structure may have changed."
                 )
             _verify_cjpeg(cjpeg)
 
-            self.after(0, self._set, f"MozJPEG {tag} instalado com sucesso!", 1.0)
+            self.after(0, self._set, f"MozJPEG {tag} installed successfully!", 1.0)
             self.after(900, self._finish, True)
 
         except Exception as e:
@@ -538,20 +541,21 @@ class DownloadWindow(ctk.CTkToplevel):
 
     def _fail(self, msg: str):
         messagebox.showerror(
-            "Falha na instalação",
-            f"Não foi possível instalar o MozJPEG automaticamente.\n\n"
-            f"Erro: {msg}\n\n"
-            f"Instala manualmente em:\n"
+            "Installation failed",
+            f"MozJPEG could not be installed automatically.\n\n"
+            f"Error: {msg}\n\n"
+            f"Install it manually from:\n"
             f"https://github.com/mozilla/mozjpeg/releases",
-            parent=self,
         )
         self._finish(False)
 
 
-# ─── Worker de compressão ─────────────────────────────────────────────────────
+# ─── Compression worker ───────────────────────────────────────────────────────
 
 
 class Compressor(threading.Thread):
+    """Process selected images in a worker thread and report results via callbacks."""
+
     def __init__(
         self,
         cjpeg: Path,
@@ -563,7 +567,7 @@ class Compressor(threading.Thread):
     ):
         super().__init__(daemon=True)
         self.cjpeg = cjpeg
-        self.tasks = tasks  # lista de (Path input, Path output)
+        self.tasks = tasks  # list of (input Path, output Path) pairs
         self.settings = settings
         self.on_file_done = on_file_done
         self.on_progress = on_progress
@@ -584,6 +588,7 @@ class Compressor(threading.Thread):
         self.on_finish()
 
     def _process(self, inp: Path, out: Path) -> dict:
+        """Optionally resize an image, run cjpeg, and return a result record."""
         out.parent.mkdir(parents=True, exist_ok=True)
         s = self.settings
         q = s["quality"]
@@ -615,7 +620,7 @@ class Compressor(threading.Thread):
                 img.save(tmp_path, "PNG")
                 source = tmp_path
             except Exception as e:
-                return {"status": "error", "msg": f"Resize: {e}"}
+                return {"status": "error", "msg": f"Resize failed: {e}"}
 
         # ── Comando cjpeg ─────────────────────────────────────────────────────
         cmd = [str(self.cjpeg), "-quality", str(q)]
@@ -649,7 +654,7 @@ class Compressor(threading.Thread):
                 return {
                     "status": "error",
                     "msg": r.stderr.decode(errors="replace").strip()
-                    or "Erro desconhecido",
+                    or "Unknown error",
                 }
             comp_sz = out.stat().st_size
             return {
@@ -660,7 +665,7 @@ class Compressor(threading.Thread):
                 "out": out,
             }
         except subprocess.TimeoutExpired:
-            return {"status": "error", "msg": "Timeout (ficheiro demasiado grande?)"}
+            return {"status": "error", "msg": "Timeout (file may be too large)."}
         except Exception as e:
             return {"status": "error", "msg": str(e)}
         finally:
@@ -668,10 +673,12 @@ class Compressor(threading.Thread):
                 tmp_path.unlink(missing_ok=True)
 
 
-# ─── Painel de pré-visualização ───────────────────────────────────────────────
+# ─── Preview panel ────────────────────────────────────────────────────────────
 
 
 class PreviewPanel(ctk.CTkFrame):
+    """Display original and compressed images with zooming and panning."""
+
     def __init__(self, parent, **kw):
         super().__init__(parent, **kw)
         self._zoom = 1.0
@@ -682,14 +689,14 @@ class PreviewPanel(ctk.CTkFrame):
         self._build()
 
     def _build(self):
-        # Barra superior: labels + controlos de zoom
+        # Top bar: labels and zoom controls.
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.pack(fill="x", padx=10, pady=(10, 3))
 
         ctk.CTkLabel(
             top,
             text="ORIGINAL",
-            font=("Segoe UI", 9, "bold"),
+            font=("Segoe UI", 12, "bold"),
             text_color=C_MUTED,
         ).pack(side="left", expand=True)
 
@@ -718,7 +725,7 @@ class PreviewPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             top,
-            text="COMPRIMIDO",
+            text="COMPRESSED",
             font=("Segoe UI", 9, "bold"),
             text_color=C_MUTED,
         ).pack(side="right", expand=True)
@@ -732,7 +739,7 @@ class PreviewPanel(ctk.CTkFrame):
         self._cc = tk.Canvas(cf, bg=C_BG, bd=0, highlightthickness=0, cursor="fleur")
         self._cc.pack(side="right", fill="both", expand=True)
 
-        # Barra inferior: informações de tamanho
+        # Bottom bar: file-size information.
         inf = ctk.CTkFrame(self, fg_color="transparent")
         inf.pack(fill="x", padx=10, pady=(3, 10))
         self._lbl_orig = ctk.CTkLabel(
@@ -744,7 +751,7 @@ class PreviewPanel(ctk.CTkFrame):
         )
         self._lbl_comp.pack(side="right", expand=True)
 
-        # Eventos
+        # Mouse and resize events.
         for c in (self._co, self._cc):
             c.bind("<MouseWheel>", self._wheel)
             c.bind("<ButtonPress-1>", self._drag_start)
@@ -752,6 +759,7 @@ class PreviewPanel(ctk.CTkFrame):
             c.bind("<Configure>", lambda _: self._draw())
 
     def load(self, orig_path: Path, comp_path: Path | None = None):
+        """Load preview images and reset the view to 100 percent."""
         self._px = self._py = 0.0
         self._zoom = 1.0
         try:
@@ -765,7 +773,7 @@ class PreviewPanel(ctk.CTkFrame):
         except Exception:
             self._comp_img = None
 
-        # Atualiza labels de tamanho
+        # Update displayed file sizes.
         if orig_path and orig_path.exists():
             self._lbl_orig.configure(
                 text=fmt_size(orig_path.stat().st_size), text_color=C_MUTED
@@ -782,13 +790,14 @@ class PreviewPanel(ctk.CTkFrame):
                 text=f"{fmt_size(cs_sz)}   (−{pct:.1f}%)", text_color=color
             )
         else:
-            self._lbl_comp.configure(text="Ainda não comprimido", text_color=C_MUTED)
+            self._lbl_comp.configure(text="Not compressed yet", text_color=C_MUTED)
 
         self._draw()
 
     def _draw_canvas(
         self, c: tk.Canvas, img: Image.Image | None, placeholder: str = "—"
     ):
+        """Fit a preview image to its canvas while retaining the PhotoImage."""
         c.delete("all")
         w = c.winfo_width() or 1
         h = c.winfo_height() or 1
@@ -820,12 +829,12 @@ class PreviewPanel(ctk.CTkFrame):
     def _draw(self, *args, **kwargs):
         super()._draw(*args, **kwargs)
 
-        # 👇 garante que o UI já foi criado
+        # The canvas widgets are not available during early construction.
         if not hasattr(self, "_co"):
             return
 
-        self._draw_canvas(self._co, self._orig_img, "Sem imagem")
-        self._draw_canvas(self._cc, self._comp_img, "Ainda não comprimido")
+        self._draw_canvas(self._co, self._orig_img, "No image")
+        self._draw_canvas(self._cc, self._comp_img, "Not compressed yet")
         self._zlbl.configure(text=f"{int(self._zoom * 100)}%")
 
     def _wheel(self, e):
@@ -852,10 +861,12 @@ class PreviewPanel(ctk.CTkFrame):
             self._draw()
 
 
-# ─── Painel de definições ─────────────────────────────────────────────────────
+# ─── Settings panel ───────────────────────────────────────────────────────────
 
 
 class SettingsPanel(ctk.CTkFrame):
+    """Own the compression controls and expose them as a plain settings dict."""
+
     def __init__(self, parent, **kw):
         super().__init__(parent, fg_color=C_CARD, corner_radius=10, **kw)
         self._adv_open = False
@@ -866,14 +877,14 @@ class SettingsPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             self,
-            text="Compressão",
+            text="Compression",
             font=("Segoe UI", 11, "bold"),
         ).pack(anchor="w", pady=(12, 0), **pad)
 
-        # Slider de qualidade
+        # Quality slider.
         qrow = ctk.CTkFrame(self, fg_color="transparent")
         qrow.pack(fill="x", pady=(8, 0), **pad)
-        ctk.CTkLabel(qrow, text="Qualidade", font=("Segoe UI", 10)).pack(side="left")
+        ctk.CTkLabel(qrow, text="Quality", font=("Segoe UI", 10)).pack(side="left")
         qmark(qrow, "quality").pack(side="left", padx=(4, 0))
         self._qlbl = ctk.CTkLabel(
             qrow,
@@ -895,13 +906,13 @@ class SettingsPanel(ctk.CTkFrame):
         self._qslider.set(80)
         self._qslider.pack(fill="x", pady=(4, 10), **pad)
 
-        # Separador
+        # Divider.
         ctk.CTkFrame(self, height=1, fg_color=C_BORDER).pack(fill="x", padx=10)
 
-        # Botão para expandir avançadas
+        # Expand advanced settings button.
         self._adv_btn = ctk.CTkButton(
             self,
-            text="▶   Definições avançadas",
+            text="▶   Advanced settings",
             font=("Segoe UI", 10),
             anchor="w",
             fg_color="transparent",
@@ -911,7 +922,7 @@ class SettingsPanel(ctk.CTkFrame):
         )
         self._adv_btn.pack(fill="x", padx=6, pady=4)
 
-        # Frame de avançadas (oculto por defeito)
+        # Advanced settings frame, hidden by default.
         self._adv_frame = ctk.CTkFrame(self, fg_color="transparent")
         self._build_adv(self._adv_frame)
 
@@ -960,39 +971,39 @@ class SettingsPanel(ctk.CTkFrame):
         ).pack(side="right")
 
     def _build_adv(self, p):
-        # Checkboxes
+        # Checkboxes.
         self._prog = tk.BooleanVar(value=True)
         self._opt = tk.BooleanVar(value=True)
         self._gray = tk.BooleanVar(value=False)
-        self._cb(p, "JPEG Progressivo", self._prog, "progressive")
-        self._cb(p, "Otimizar Huffman", self._opt, "optimize")
-        self._cb(p, "Escala de cinzentos", self._gray, "grayscale")
+        self._cb(p, "Progressive JPEG", self._prog, "progressive")
+        self._cb(p, "Optimize Huffman", self._opt, "optimize")
+        self._cb(p, "Grayscale", self._gray, "grayscale")
 
-        # OptionMenus
+        # Option menus.
         self._chroma = ctk.StringVar(value="2x2 (4:2:0)")
         self._dct = ctk.StringVar(value="int")
         self._quant = ctk.StringVar(value="0")
         self._dd(
             p,
-            "Subamostragem",
+            "Subsampling",
             ["2x2 (4:2:0)", "2x1 (4:2:2)", "1x1 (4:4:4)"],
             self._chroma,
             "chroma",
             132,
         )
-        self._dd(p, "Método DCT", ["int", "float", "fast"], self._dct, "dct", 80)
+        self._dd(p, "DCT method", ["int", "float", "fast"], self._dct, "dct", 80)
         self._dd(
             p,
-            "Tabela de quantização",
+            "Quantization table",
             [str(i) for i in range(9)],
             self._quant,
             "quant_table",
             60,
         )
 
-        # Slider de suavização
+        # Smoothing slider.
         row = self._row(p)
-        ctk.CTkLabel(row, text="Suavização", font=("Segoe UI", 10)).pack(side="left")
+        ctk.CTkLabel(row, text="Smoothing", font=("Segoe UI", 10)).pack(side="left")
         qmark(row, "smooth").pack(side="left", padx=(4, 0))
         self._slbl = ctk.CTkLabel(row, text="0", font=("Segoe UI", 10), width=24)
         self._slbl.pack(side="right")
@@ -1013,12 +1024,13 @@ class SettingsPanel(ctk.CTkFrame):
         self._adv_open = not self._adv_open
         if self._adv_open:
             self._adv_frame.pack(fill="x", pady=(0, 6))
-            self._adv_btn.configure(text="▼   Definições avançadas")
+            self._adv_btn.configure(text="▼   Advanced settings")
         else:
             self._adv_frame.pack_forget()
-            self._adv_btn.configure(text="▶   Definições avançadas")
+            self._adv_btn.configure(text="▶   Advanced settings")
 
     def get(self) -> dict:
+        """Return the current compression options in the worker's expected format."""
         chroma_map = {
             "2x2 (4:2:0)": "2x2",
             "2x1 (4:2:2)": "2x1",
@@ -1036,10 +1048,12 @@ class SettingsPanel(ctk.CTkFrame):
         }
 
 
-# ─── Aplicação principal ──────────────────────────────────────────────────────
+# ─── Main application ─────────────────────────────────────────────────────────
 
 
 class App(ctk.CTk):
+    """Main application window coordinating file selection, processing, and views."""
+
     def __init__(self):
         super().__init__()
         self.title("MozJPEG Compressor")
@@ -1054,18 +1068,18 @@ class App(ctk.CTk):
         self._iid_to_inp: dict[str, Path] = {}  # iid → input
         self._results: dict[Path, dict] = {}
         self._worker: Compressor | None = None
-        # Adicionar após self._grid_selected: Path | None
-        self._selected_files: set[Path] = set()  # ficheiros marcados para compressão
+        # Files currently marked for compression.
+        self._selected_files: set[Path] = set()
 
         self._build_ui()
 
         if not self._cjpeg:
             self.after(500, self._prompt_download)
 
-    # ── Construção do UI ─────────────────────────────────────────────────────
+    # ── UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # Cabeçalho
+        # Header.
         hdr = ctk.CTkFrame(self, fg_color=C_SURFACE, corner_radius=0)
         hdr.pack(fill="x")
 
@@ -1078,8 +1092,8 @@ class App(ctk.CTk):
 
         self._chip = ctk.CTkLabel(
             hdr,
-            text="✓  MozJPEG pronto" if self._cjpeg else "⚠  MozJPEG não instalado",
-            font=("Segoe UI", 9),
+            text="✓  MozJPEG ready" if self._cjpeg else "⚠  MozJPEG not installed",
+            font=("Segoe UI", 12),
             text_color=C_OK if self._cjpeg else C_WARN,
         )
         self._chip.pack(side="right", padx=20)
@@ -1091,13 +1105,13 @@ class App(ctk.CTk):
         frow.pack(fill="x", padx=10, pady=(6, 2))
         ctk.CTkLabel(
             frow,
-            text="Pasta de origem",
+            text="Source folder",
             font=("Segoe UI", 9),
             text_color=C_MUTED,
         ).pack(side="left", padx=(0, 8))
         self._folder_lbl = ctk.CTkLabel(
             frow,
-            text="Nenhuma pasta selecionada",
+            text="No folder selected",
             font=("Segoe UI", 9),
             text_color=C_MUTED,
             anchor="w",
@@ -1120,7 +1134,7 @@ class App(ctk.CTk):
         self._recursive = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(
             rec_row,
-            text="Incluir subpastas",
+            text="Include subfolders",
             variable=self._recursive,
             font=("Segoe UI", 10),
             checkbox_width=16,
@@ -1151,21 +1165,21 @@ class App(ctk.CTk):
         self._build_right(right)
 
     def _build_left(self, parent):
-        # ── Card: ficheiro de saída ───────────────────────────────────────────
+        # ── Output file card ──────────────────────────────────────────────────
         out_card = ctk.CTkFrame(parent, fg_color=C_CARD, corner_radius=10)
         out_card.pack(fill="x", pady=(0, 8))
 
         ctk.CTkLabel(
             out_card,
-            text="Ficheiro de saída",
+            text="Output file",
             font=("Segoe UI", 11, "bold"),
         ).pack(anchor="w", padx=14, pady=(12, 6))
 
         self._suf_mode = tk.StringVar(value="auto")
         for val, label in [
-            ("auto", "Sufixo automático  (_compressed_80)"),
-            ("custom", "Sufixo personalizado"),
-            ("none", "Sem sufixo  (nome original)"),
+            ("auto", "Automatic suffix  (_compressed_80)"),
+            ("custom", "Custom suffix"),
+            ("none", "No suffix  (original name)"),
         ]:
             ctk.CTkRadioButton(
                 out_card,
@@ -1194,7 +1208,7 @@ class App(ctk.CTk):
 
         self._suf_preview = ctk.CTkLabel(
             out_card,
-            text="→  nome_compressed_80.jpg",
+            text="->  name_compressed_80.jpg",
             font=("Segoe UI", 8),
             text_color=C_MUTED,
             anchor="w",
@@ -1206,7 +1220,7 @@ class App(ctk.CTk):
         self._open_export = tk.BooleanVar(value=True)
         ctk.CTkCheckBox(
             open_row,
-            text="Abrir pasta export no fim",
+            text="Open export folder when finished",
             variable=self._open_export,
             font=("Segoe UI", 10),
             checkbox_width=16,
@@ -1216,20 +1230,20 @@ class App(ctk.CTk):
             hover_color=C_HOVER,
         ).pack(side="left")
 
-        # ── Card: opções de processamento ─────────────────────────────────────
+        # ── Processing options card ───────────────────────────────────────────
         proc_card = ctk.CTkFrame(parent, fg_color=C_CARD, corner_radius=10)
         proc_card.pack(fill="x", pady=(0, 8))
 
         ctk.CTkLabel(
             proc_card,
-            text="Processamento",
+            text="Processing",
             font=("Segoe UI", 11, "bold"),
         ).pack(anchor="w", padx=14, pady=(12, 6))
 
-        # Tamanho mínimo
+        # Minimum file size.
         ms_row = ctk.CTkFrame(proc_card, fg_color="transparent")
         ms_row.pack(fill="x", padx=14, pady=(0, 8))
-        ctk.CTkLabel(ms_row, text="Ignorar abaixo de", font=("Segoe UI", 10)).pack(
+        ctk.CTkLabel(ms_row, text="Skip below", font=("Segoe UI", 10)).pack(
             side="left"
         )
         qmark(ms_row, "min_size").pack(side="left", padx=(4, 0))
@@ -1247,23 +1261,23 @@ class App(ctk.CTk):
         self._min_size_entry.insert(0, "100")
         self._min_size_entry.pack(side="right", padx=(0, 4))
 
-        # Redimensionar
+        # Resize options.
         rs_row = ctk.CTkFrame(proc_card, fg_color="transparent")
         rs_row.pack(fill="x", padx=14, pady=(0, 4))
-        ctk.CTkLabel(rs_row, text="Redimensionar", font=("Segoe UI", 10)).pack(
+        ctk.CTkLabel(rs_row, text="Resize", font=("Segoe UI", 10)).pack(
             side="left"
         )
         qmark(rs_row, "resize").pack(side="left", padx=(4, 0))
 
-        self._resize_var = ctk.StringVar(value="Não redimensionar")
+        self._resize_var = ctk.StringVar(value="Do not resize")
         ctk.CTkOptionMenu(
             proc_card,
             values=[
-                "Não redimensionar",
-                "75% do original",
-                "50% do original",
-                "25% do original",
-                "Lado maior (px)...",
+                "Do not resize",
+                "75% of original",
+                "50% of original",
+                "25% of original",
+                "Longest side (px)...",
             ],
             variable=self._resize_var,
             width=234,
@@ -1278,7 +1292,7 @@ class App(ctk.CTk):
         px_row = ctk.CTkFrame(proc_card, fg_color="transparent")
         px_row.pack(fill="x", padx=14, pady=(4, 12))
         ctk.CTkLabel(
-            px_row, text="Lado maior:", font=("Segoe UI", 10), text_color=C_MUTED
+            px_row, text="Longest side:", font=("Segoe UI", 10), text_color=C_MUTED
         ).pack(side="left")
         ctk.CTkLabel(px_row, text="px", font=("Segoe UI", 10), text_color=C_MUTED).pack(
             side="right"
@@ -1295,54 +1309,59 @@ class App(ctk.CTk):
         self._resize_px_entry.insert(0, "2000")
         self._resize_px_entry.pack(side="right", padx=(0, 4))
 
-        # ── Definições de compressão ──────────────────────────────────────────
+        # ── Compression settings ──────────────────────────────────────────────
         self._settings = SettingsPanel(parent)
         self._settings.pack(fill="x", pady=(0, 8))
 
-        # ── Botões ────────────────────────────────────────────────────────────
+        # ── Action buttons ─────────────────────────────────────────────────────
         btns = ctk.CTkFrame(parent, fg_color="transparent")
         btns.pack(fill="x")
+        for column in range(3):
+            btns.columnconfigure(column, weight=1)
 
         self._btn_scan = ctk.CTkButton(
             btns,
-            text="🔍   Procurar ficheiros",
-            font=("Segoe UI", 10),
-            height=34,
+            text="🔍\nFind files",
+            font=("Segoe UI", 9),
+            width=78,
+            height=78,
             fg_color=C_HOVER,
             hover_color=C_BORDER,
             text_color=C_TEXT,
             command=self._scan,
         )
-        self._btn_scan.pack(fill="x", pady=(0, 6))
+        self._btn_scan.grid(row=0, column=0, padx=(0, 4), sticky="nsew")
 
         self._btn_start = ctk.CTkButton(
             btns,
-            text="▶   Iniciar compressão",
-            font=("Segoe UI", 10, "bold"),
-            height=40,
+            text="▶\nStart\ncompression",
+            font=("Segoe UI", 9, "bold"),
+            width=78,
+            height=78,
             fg_color=C_ACCENT,
             hover_color=C_ACCENT2,
             text_color="#fff",
             command=self._start,
             state="disabled",
         )
-        self._btn_start.pack(fill="x", pady=(0, 6))
+        self._btn_start.grid(row=0, column=1, padx=2, sticky="nsew")
 
         self._btn_stop = ctk.CTkButton(
             btns,
-            text="⏹   Parar",
-            font=("Segoe UI", 10),
-            height=32,
+            text="⏹\nStop",
+            font=("Segoe UI", 9),
+            width=78,
+            height=78,
             fg_color="#2a1010",
             hover_color="#3a1818",
             text_color=C_ERR,
             command=self._stop,
             state="disabled",
         )
-        self._btn_stop.pack(fill="x")
+        self._btn_stop.grid(row=0, column=2, padx=(4, 0), sticky="nsew")
 
     def _build_right(self, parent):
-        # Card da lista de ficheiros
+        # File-list card.
         list_card = ctk.CTkFrame(parent, fg_color=C_CARD, corner_radius=10)
         list_card.grid(row=0, column=0, sticky="nsew", pady=(0, 8))
         list_card.rowconfigure(2, weight=1)
@@ -1350,11 +1369,11 @@ class App(ctk.CTk):
 
         hdr_row = ctk.CTkFrame(list_card, fg_color="transparent")
         hdr_row.grid(row=0, column=0, sticky="ew", padx=14, pady=(12, 4))
-        ctk.CTkLabel(hdr_row, text="Ficheiros", font=("Segoe UI", 11, "bold")).pack(
+        ctk.CTkLabel(hdr_row, text="Files", font=("Segoe UI", 11, "bold")).pack(
             side="left"
         )
         self._zoom_frame = ctk.CTkFrame(hdr_row, fg_color="transparent")
-        # começa oculto — só aparece em modo grid
+        # Hidden until grid view is enabled.
         self._thumb_size = 100
         ctk.CTkButton(
             self._zoom_frame,
@@ -1387,13 +1406,13 @@ class App(ctk.CTk):
             command=lambda: self._zoom_grid(+20),
         ).pack(side="left", padx=(2, 8))
 
-        # Botões de seleção
+        # Selection buttons.
         sel_frame = ctk.CTkFrame(hdr_row, fg_color="transparent")
         sel_frame.pack(side="left", padx=(16, 0))
 
         ctk.CTkButton(
             sel_frame,
-            text="Selecionar todos",
+            text="Select all",
             width=120,
             height=24,
             fg_color=C_HOVER,
@@ -1405,7 +1424,7 @@ class App(ctk.CTk):
 
         ctk.CTkButton(
             sel_frame,
-            text="Inverter seleção",
+            text="Invert selection",
             width=110,
             height=24,
             fg_color=C_HOVER,
@@ -1417,7 +1436,7 @@ class App(ctk.CTk):
 
         ctk.CTkButton(
             sel_frame,
-            text="Limpar seleção",
+            text="Clear selection",
             width=110,
             height=24,
             fg_color=C_HOVER,
@@ -1502,12 +1521,12 @@ class App(ctk.CTk):
             selectmode="browse",
         )
         for col, label, width, anchor in [
-            ("sel", "Selecionar", 40, "center"),
-            ("file", "Ficheiro", 300, "w"),
+            ("sel", "Select", 40, "center"),
+            ("file", "File", 300, "w"),
             ("orig", "Original", 88, "e"),
-            ("comp", "Comprimido", 96, "e"),
-            ("saved", "Guardado", 72, "e"),
-            ("state", "Estado", 116, "w"),
+            ("comp", "Compressed", 96, "e"),
+            ("saved", "Saved", 72, "e"),
+            ("state", "Status", 116, "w"),
         ]:
             self._tree.heading(col, text=label, anchor=anchor)
             self._tree.column(col, width=width, minwidth=width, stretch=False, anchor=anchor)
@@ -1530,7 +1549,7 @@ class App(ctk.CTk):
         vsb.pack(side="right", fill="y")
         self._tree.bind("<<TreeviewSelect>>", self._on_select)
 
-        # Grid view container
+        # Grid-view container.
         self._grid_outer = tk.Frame(tree_outer, bg=C_BG)
         self._grid_canvas = tk.Canvas(
             self._grid_outer, bg=C_BG, bd=0, highlightthickness=0
@@ -1563,26 +1582,26 @@ class App(ctk.CTk):
         self._grid_selected: Path | None = None
         self._grid_generation = 0
 
-        # Painel de preview
+        # Preview panel.
         self._preview = PreviewPanel(parent, fg_color=C_CARD, corner_radius=10)
         self._preview.grid(row=1, column=0, sticky="nsew")
 
-        # Rodapé de estatísticas
+        # Statistics footer.
         footer = ctk.CTkFrame(parent, fg_color=C_SURFACE, corner_radius=8, height=34)
         footer.grid(row=2, column=0, sticky="ew", pady=(8, 0))
         footer.grid_propagate(False)
         self._stat_lbl = ctk.CTkLabel(
             footer,
-            text="Sem dados ainda.",
+            text="No data yet.",
             font=("Segoe UI", 9),
             text_color=C_MUTED,
         )
         self._stat_lbl.pack(side="left", padx=14)
 
-    # ── Ações ────────────────────────────────────────────────────────────────
+    # ── Actions ───────────────────────────────────────────────────────────────
 
     def _browse(self):
-        path = filedialog.askdirectory(title="Selecionar pasta de origem")
+        path = filedialog.askdirectory(title="Select source folder")
         if path:
             self._source_dir = Path(path)
             self._folder_lbl.configure(text=str(self._source_dir), text_color=C_TEXT)
@@ -1592,19 +1611,32 @@ class App(ctk.CTk):
         self._suf_entry.configure(state="normal" if mode == "custom" else "disabled")
         q = int(self._settings._qslider.get())
         previews = {
-            "auto": f"→  nome_compressed_{q}.jpg",
-            "custom": "→  nome<sufixo>.jpg",
-            "none": "→  nome.jpg  (nome original)",
+            "auto": f"->  name_compressed_{q}.jpg",
+            "custom": "->  name<suffix>.jpg",
+            "none": "->  name.jpg  (original name)",
         }
         self._suf_preview.configure(text=previews[mode])
 
     def _on_resize_change(self, val: str):
-        if val == "Lado maior (px)...":
+        if val == "Longest side (px)...":
             self._resize_px_entry.configure(state="normal")
         else:
             self._resize_px_entry.configure(state="disabled")
 
+    def _output_path(self, inp: Path, quality: int) -> Path:
+        """Build an output path from the current suffix mode and image location."""
+        mode = self._suf_mode.get()
+        if mode == "custom":
+            suffix = self._suf_entry.get().strip() or f"_compressed_{quality}"
+            filename = f"{inp.stem}{suffix}.jpg"
+        elif mode == "none":
+            filename = f"{inp.stem}.jpg"
+        else:
+            filename = f"{inp.stem}_compressed_{quality}.jpg"
+        return self._source_dir / EXPORT_FOLDER / inp.relative_to(self._source_dir).parent / filename
+
     def _toggle_view(self):
+        """Switch between the tree list and thumbnail grid views."""
         if self._view_mode == "list":
             self._view_mode = "grid"
             self._list_outer.pack_forget()
@@ -1622,6 +1654,12 @@ class App(ctk.CTk):
             self._view_btn.configure(text="⊞  Grid")
 
     def _populate_grid(self):
+        """Rebuild grid cells and start asynchronous thumbnail loading.
+
+        Every rebuild increments ``_grid_generation``. Workers from an older
+        rebuild may finish later, so their callbacks must not update destroyed
+        labels.
+        """
         self._grid_generation += 1
         generation = self._grid_generation
         for w in self._grid_inner.winfo_children():
@@ -1676,14 +1714,14 @@ class App(ctk.CTk):
             skip = out.exists()
             st_lbl = tk.Label(
                 cell,
-                text="Ignorado" if skip else "Pendente",
+                text="Skipped" if skip else "Pending",
                 bg=C_CARD,
                 fg=C_WARN if skip else C_MUTED,
                 font=("Segoe UI", 7),
             )
             st_lbl.pack()
 
-            # Checkmark no canto superior direito
+            # Checkmark in the upper-right corner.
             check_lbl = tk.Label(
                 cell,
                 text="",
@@ -1698,7 +1736,7 @@ class App(ctk.CTk):
             for w in (cell, img_lbl, name_lbl, st_lbl, check_lbl):
                 w.bind("<Button-1>", lambda e, i=inp: self._grid_select(i, e))
 
-            # Permite atualizar o checkmark mais tarde sem recriar a célula
+            # Update the checkmark later without rebuilding the cell.
             self._grid_cells[inp] = {"status": st_lbl, "cell": cell, "check_lbl": check_lbl}
 
             threading.Thread(
@@ -1712,6 +1750,7 @@ class App(ctk.CTk):
     def _load_thumb(
         self, inp: Path, lbl: tk.Label, tw: int, th: int, generation: int
     ):
+        """Load one thumbnail off-thread and apply it only if still current."""
         try:
             img = Image.open(inp)
             img.thumbnail((tw, th), Image.LANCZOS)
@@ -1738,13 +1777,14 @@ class App(ctk.CTk):
         self._populate_grid()
 
     def _grid_select(self, inp: Path, event=None):
+        """Select a grid item, update preview content, and refresh its visuals."""
         iid = self._iid_map.get(inp)
         if iid:
             self._tree.unbind("<<TreeviewSelect>>")
             self._tree.selection_set(iid)
             self._tree.bind("<<TreeviewSelect>>", self._on_select)
 
-        # Seleção com CTRL/Shift
+        # CTRL/Shift selection handling.
         if event:
             ctrl_held = event.state & 0x4
             shift_held = event.state & 0x1
@@ -1760,17 +1800,17 @@ class App(ctk.CTk):
             else:
                 self._toggle_file_selection(inp)
         else:
-            # Chamado programaticamente (sem event), só toggle
+            # Programmatic call without an event: toggle the item.
             self._toggle_file_selection(inp)
 
-        # Guardar para próximo Shift+click
+        # Remember this item for the next Shift-click.
         self._last_clicked_file = inp
 
         res = self._results.get(inp)
         comp = res["out"] if res and res["status"] == "done" else None
         self._preview.load(inp, comp)
 
-        # Atualiza só a célula anterior e a nova
+        # Update only the previous and current preview cells.
         if self._grid_selected and self._grid_selected in self._grid_cells:
             self._grid_cells[self._grid_selected]["cell"].configure(
                 border_color=C_BORDER
@@ -1794,8 +1834,9 @@ class App(ctk.CTk):
             c["status"].configure(text="✗ Erro", fg=C_ERR)
 
     def _scan(self):
+        """Discover source images and create the initial task/output-path list."""
         if not self._source_dir:
-            messagebox.showwarning("Sem pasta", "Seleciona uma pasta primeiro.")
+            messagebox.showwarning("No folder", "Select a folder first.")
             return
 
         export_dir = self._source_dir / EXPORT_FOLDER
@@ -1819,17 +1860,7 @@ class App(ctk.CTk):
         quality = self._settings.get()["quality"]
         self._tasks = []
         for f in files:
-            rel = f.relative_to(self._source_dir)
-            mode = self._suf_mode.get()
-            if mode == "custom":
-                suf = self._suf_entry.get().strip() or f"_compressed_{quality}"
-                out_name = f"{f.stem}{suf}.jpg"
-            elif mode == "none":
-                out_name = f"{f.stem}.jpg"
-            else:
-                out_name = f"{f.stem}_compressed_{quality}.jpg"
-            out = export_dir / rel.parent / out_name
-            self._tasks.append((f, out))
+            self._tasks.append((f, self._output_path(f, quality)))
 
         self._results = {}
         
@@ -1840,17 +1871,18 @@ class App(ctk.CTk):
 
         if n == 0:
             messagebox.showinfo(
-                "Sem ficheiros",
-                "Não foram encontrados ficheiros JPEG ou PNG na pasta selecionada.",
+                "No files",
+                "No JPEG or PNG files were found in the selected folder.",
             )
 
         self._selected_files.clear()
         self._last_clicked_file = None
 
-        # Repovoa a lista apenas uma vez depois de preparar o estado da seleção
+        # Rebuild the list once after preparing selection state.
         self._populate_tree()
 
     def _populate_tree(self):
+        """Synchronize the list view with the current task and result state."""
         self._tree.delete(*self._tree.get_children())
         self._iid_map.clear()
         self._iid_to_inp.clear()
@@ -1858,7 +1890,7 @@ class App(ctk.CTk):
         for inp, out in self._tasks:
             skip = out.exists()
             tag = "skipped" if skip else "pending"
-            state = "Ignorado" if skip else "Pendente"
+            state = "Skipped" if skip else "Pending"
             try:
                 orig_sz = fmt_size(inp.stat().st_size)
             except OSError:
@@ -1879,16 +1911,22 @@ class App(ctk.CTk):
         self._refresh_all_selection_visuals()
 
     def _start(self):
+        """Start compression for selected, non-existing outputs."""
         if not self._cjpeg:
-            messagebox.showerror("MozJPEG não instalado", "Instala o MozJPEG primeiro.")
+            messagebox.showerror("MozJPEG not installed", "Install MozJPEG first.")
             return
         if not self._tasks:
             messagebox.showinfo(
-                "Sem ficheiros", "Clica em 'Procurar ficheiros' primeiro."
+                "No files", "Click 'Find files' first."
             )
             return
 
-        # Filtrar ficheiros: não-existentes E selecionados
+        quality = self._settings.get()["quality"]
+        self._tasks = [
+            (inp, self._output_path(inp, quality)) for inp, _ in self._tasks
+        ]
+
+        # Keep only selected files whose outputs do not already exist.
         active = [
             (inp, out)
             for inp, out in self._tasks
@@ -1896,31 +1934,31 @@ class App(ctk.CTk):
         ]
 
         if not active:
-            # Verificar se o problema é falta de seleção ou ficheiros já existentes
+            # Distinguish between no selection and already-existing outputs.
             any_selected = any(inp in self._selected_files for inp, _ in self._tasks)
             if not any_selected:
                 messagebox.showwarning(
-                    "Nenhum ficheiro selecionado",
-                    "Seleciona pelo menos um ficheiro para comprimir.",
+                    "No files selected",
+                    "Select at least one file to compress.",
                 )
             else:
                 messagebox.showinfo(
-                    "Nada a fazer",
-                    "Todos os ficheiros selecionados já existem na pasta export.\n"
-                    "Altera a qualidade e clica em 'Procurar ficheiros' para gerar novos.",
+                    "Nothing to do",
+                    "All selected files already exist in the export folder.\n"
+                    "Change the quality and click 'Find files' to generate new ones.",
                 )
             return
 
-        # Marcar ficheiros não-processados como skipped no treeview
+        # Mark unprocessed files as skipped in the tree view.
         for inp, out in self._tasks:
             if (inp, out) not in active:
                 iid = self._iid_map.get(inp)
                 if iid:
-                    # Determinar razão do skip
+                    # Determine why this file was skipped.
                     if out.exists():
-                        reason = "já existe"
+                        reason = "already exists"
                     else:
-                        reason = "não selecionado"
+                        reason = "not selected"
 
                     self._tree.set(iid, "orig", "—")
                     self._tree.set(iid, "comp", "—")
@@ -1933,9 +1971,9 @@ class App(ctk.CTk):
         self._btn_scan.configure(state="disabled")
         settings = self._settings.get()
         rv = self._resize_var.get()
-        if rv == "Não redimensionar":
+        if rv == "Do not resize":
             settings["resize_mode"] = "none"
-        elif rv == "Lado maior (px)...":
+        elif rv == "Longest side (px)...":
             settings["resize_mode"] = "custom"
             try:
                 settings["resize_px"] = int(self._resize_px_entry.get() or 2000)
@@ -1959,23 +1997,23 @@ class App(ctk.CTk):
         self._btn_stop.configure(state="disabled")
 
     def _select_all(self):
-        """Seleciona todos os ficheiros da lista atual."""
+        """Select every file in the current task list."""
         self._selected_files = {inp for inp, _ in self._tasks}
         self._refresh_all_selection_visuals()
 
     def _select_none(self):
-        """Remove seleção de todos os ficheiros."""
+        """Clear the current file selection."""
         self._selected_files.clear()
         self._refresh_all_selection_visuals()
 
     def _invert_selection(self):
-        """Inverte a seleção atual."""
+        """Invert the current file selection."""
         all_files = {inp for inp, _ in self._tasks}
         self._selected_files = all_files - self._selected_files
         self._refresh_all_selection_visuals()
 
     def _toggle_file_selection(self, inp: Path):
-        """Toggle seleção de um único ficheiro."""
+        """Toggle selection for one file."""
         if inp in self._selected_files:
             self._selected_files.discard(inp)
         else:
@@ -1983,8 +2021,8 @@ class App(ctk.CTk):
         self._refresh_file_visual(inp)
 
     def _select_range(self, start_inp: Path, end_inp: Path):
-        """Seleciona todos os ficheiros entre start e end (inclusive)."""
-        # Encontrar índices na lista ordenada de tasks
+        """Select every file between the start and end items, inclusive."""
+        # Find indices in the ordered task list.
         task_paths = [inp for inp, _ in self._tasks]
         try:
             start_idx = task_paths.index(start_inp)
@@ -1992,44 +2030,44 @@ class App(ctk.CTk):
             if start_idx > end_idx:
                 start_idx, end_idx = end_idx, start_idx
 
-            # Selecionar todos no range
+            # Add every item in the range to the selection.
             for inp in task_paths[start_idx : end_idx + 1]:
                 self._selected_files.add(inp)
 
             self._refresh_all_selection_visuals()
         except ValueError:
-            pass  # ficheiro não encontrado, ignora
+            pass  # Ignore files that are no longer present in the task list.
 
     def _refresh_all_selection_visuals(self):
-        """Atualiza indicadores visuais de seleção em todos os ficheiros."""
+        """Refresh selection indicators for every file in both views."""
         for inp, _ in self._tasks:
             self._refresh_file_visual(inp)
 
     def _refresh_file_visual(self, inp: Path):
-        """Atualiza indicador visual de seleção num único ficheiro."""
+        """Update selection indicators in both list and grid representations."""
         is_selected = inp in self._selected_files
 
-        # Atualizar treeview (list mode)
+        # Update the tree view (list mode).
         if inp in self._iid_map:
             iid = self._iid_map[inp]
-            # Tag para background color
+            # Apply the selected background tag.
             if is_selected:
                 self._tree.item(iid, tags=("selected",))
             else:
-                # Restaurar tag original se houver (done/error/processing)
+                # Restore the original tag when a result is available.
                 result = self._results.get(inp)
                 if result:
                     status = result.get("status", "pending")
                     self._tree.item(iid, tags=(status,))
 
-            # Atualizar coluna de checkmark (será criada no BLOCO 4)
+            # Update the checkmark column.
             check = "✓" if is_selected else ""
             self._tree.set(iid, "sel", check)
 
-        # Atualizar grid cell (grid mode)
+        # Update the grid cell (grid mode).
         if inp in self._grid_cells:
             cell_frame = self._grid_cells[inp]["cell"]
-            # Border e background (será aplicado no BLOCO 5)
+            # Update the border and background.
             if is_selected:
                 cell_frame.configure(
                     border_width=2, border_color=C_ACCENT, fg_color=C_SELECTED
@@ -2039,24 +2077,28 @@ class App(ctk.CTk):
                     border_width=1, border_color=C_BORDER, fg_color=C_CARD
                 )
 
-            # Checkmark label (será criado no BLOCO 5)
+            # Update the checkmark label.
             if "check_lbl" in self._grid_cells[inp]:
                 check_lbl = self._grid_cells[inp]["check_lbl"]
                 check_lbl.configure(text="✓" if is_selected else "")
 
-    # ── Callbacks do worker (chamados de thread secundária) ──────────────────
+    # ── Worker callbacks (called from a background thread) ───────────────────
 
     def _on_file_done(self, inp: Path, result: dict):
+        """Store a worker result and schedule its UI update on the Tk thread."""
         self._results[inp] = result
         self.after(0, self._update_row, inp, result)
 
     def _on_progress(self, done: int, total: int, current: Path):
+        """Forward worker progress safely to the Tk event loop."""
         self.after(0, self._set_progress, done, total, current)
 
     def _on_finish(self):
+        """Schedule the final progress and statistics update on the Tk thread."""
         self.after(0, self._finish_ui)
 
     def _update_row(self, inp: Path, result: dict):
+        """Render one completed or failed compression result in the UI."""
         iid = self._iid_map.get(inp)
         if not iid:
             return
@@ -2069,7 +2111,7 @@ class App(ctk.CTk):
                     fmt_size(result["orig"]),
                     fmt_size(result["comp"]),
                     f"−{result['pct']:.1f}%",
-                    "Concluído",
+                    "Completed",
                 ),
                 tags=("done",),
             )
@@ -2086,7 +2128,7 @@ class App(ctk.CTk):
                     orig_sz,
                     "—",
                     "—",
-                    "Erro",
+                    "Error",
                 ),
                 tags=("error",),
             )
@@ -2113,13 +2155,14 @@ class App(ctk.CTk):
                     orig_sz,
                     "—",
                     "—",
-                    "A processar...",
+                    "Processing...",
                 ),
                 tags=("processing",),
             )
             self._tree.see(iid)
 
     def _finish_ui(self):
+        """Re-enable controls and display final counts and saved space."""
         self._prog_bar.set(1.0)
         self._btn_start.configure(state="normal")
         self._btn_stop.configure(state="disabled")
@@ -2134,19 +2177,19 @@ class App(ctk.CTk):
         )
 
         self._prog_lbl.configure(
-            text=f"{done} concluídos" + (f", {errs} erros" if errs else ""),
+            text=f"{done} completed" + (f", {errs} errors" if errs else ""),
         )
 
         if done:
             self._stat_lbl.configure(
-                text=f"✓  {done} ficheiro(s) comprimidos  ·  "
-                f"Espaço poupado: {fmt_size(saved)}"
-                + (f"  ·  {errs} erro(s)" if errs else ""),
+                text=f"✓  {done} file(s) compressed  ·  "
+                f"Space saved: {fmt_size(saved)}"
+                + (f"  ·  {errs} error(s)" if errs else ""),
                 text_color=C_OK,
             )
         else:
             self._stat_lbl.configure(
-                text="Nenhum ficheiro processado.", text_color=C_MUTED
+                text="No files processed.", text_color=C_MUTED
             )
 
         if self._open_export.get() and self._source_dir and done:
@@ -2154,7 +2197,7 @@ class App(ctk.CTk):
             if export_dir.exists():
                 os.startfile(export_dir)
 
-    # ── Seleção na lista ─────────────────────────────────────────────────────
+    # ── List selection ─────────────────────────────────────────────────────────
 
     def _on_select(self, event):
         sel = self._tree.selection()
@@ -2165,12 +2208,12 @@ class App(ctk.CTk):
         if not inp:
             return
 
-        # Mostra o original e, se existir, o ficheiro comprimido no painel de preview
+        # Show the original and, when available, the compressed file in the preview.
         res = self._results.get(inp)
         comp_path = res["out"] if res and res["status"] == "done" else None
         self._preview.load(inp, comp_path)
 
-        # Seleção com CTRL/Shift
+        # CTRL/Shift selection handling.
         ctrl_held = event.state & 0x4  # CTRL
         shift_held = event.state & 0x1  # Shift
 
@@ -2185,10 +2228,10 @@ class App(ctk.CTk):
             # Toggle individual
             self._toggle_file_selection(inp)
 
-        # Guardar para próximo Shift+click
+        # Remember this item for the next Shift-click.
         self._last_clicked_file = inp
 
-    # ── Download do MozJPEG ──────────────────────────────────────────────────
+    # ── MozJPEG download ──────────────────────────────────────────────────────
 
     def _prompt_download(self):
         DownloadWindow(self, self._on_download_done)
@@ -2198,15 +2241,15 @@ class App(ctk.CTk):
             self._cjpeg = find_cjpeg()
         ok = bool(self._cjpeg)
         self._chip.configure(
-            text="✓  MozJPEG pronto" if ok else "✗  MozJPEG não instalado",
+            text="✓  MozJPEG ready" if ok else "✗  MozJPEG not installed",
             text_color=C_OK if ok else C_ERR,
         )
         if not ok:
             messagebox.showerror(
-                "MozJPEG não instalado",
-                "Instala manualmente em:\n"
+                "MozJPEG not installed",
+                "Install it manually from:\n"
                 "https://github.com/mozilla/mozjpeg/releases\n\n"
-                "Após instalar, reinicia a app.",
+                "After installation, restart the app.",
             )
 
 
