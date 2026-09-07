@@ -1359,6 +1359,7 @@ class App(ctk.CTk):
         self._grid_photos: dict = {}
         self._grid_cells: dict = {}
         self._grid_selected: Path | None = None
+        self._grid_generation = 0
 
         # Painel de preview
         self._preview = PreviewPanel(parent, fg_color=C_CARD, corner_radius=10)
@@ -1419,6 +1420,8 @@ class App(ctk.CTk):
             self._view_btn.configure(text="⊞  Grid")
 
     def _populate_grid(self):
+        self._grid_generation += 1
+        generation = self._grid_generation
         for w in self._grid_inner.winfo_children():
             w.destroy()
         self._grid_photos.clear()
@@ -1497,23 +1500,34 @@ class App(ctk.CTk):
 
             threading.Thread(
                 target=self._load_thumb,
-                args=(inp, img_lbl, THUMB_W, THUMB_H),
+                args=(inp, img_lbl, THUMB_W, THUMB_H, generation),
                 daemon=True,
             ).start()
 
         self._refresh_all_selection_visuals()
 
-    def _load_thumb(self, inp: Path, lbl: tk.Label, tw: int, th: int):
+    def _load_thumb(
+        self, inp: Path, lbl: tk.Label, tw: int, th: int, generation: int
+    ):
         try:
             img = Image.open(inp)
             img.thumbnail((tw, th), Image.LANCZOS)
             photo = ImageTk.PhotoImage(img)
-            self._grid_photos[inp] = photo
-            self.after(0, lambda: lbl.configure(image=photo))
+
+            def apply_thumbnail():
+                if generation != self._grid_generation or not lbl.winfo_exists():
+                    return
+                self._grid_photos[inp] = photo
+                lbl.configure(image=photo)
+
+            self.after(0, apply_thumbnail)
         except Exception:
-            self.after(
-                0, lambda: lbl.configure(text="⚠", fg=C_MUTED, font=("Segoe UI", 18))
-            )
+            def apply_error():
+                if generation != self._grid_generation or not lbl.winfo_exists():
+                    return
+                lbl.configure(text="⚠", fg=C_MUTED, font=("Segoe UI", 18))
+
+            self.after(0, apply_error)
 
     def _zoom_grid(self, delta: int):
         self._thumb_size = max(60, min(240, self._thumb_size + delta))
