@@ -1752,13 +1752,15 @@ class App(ctk.CTk):
     ):
         """Load one thumbnail off-thread and apply it only if still current."""
         try:
-            img = Image.open(inp)
+            with Image.open(inp) as source:
+                img = source.copy()
             img.thumbnail((tw, th), Image.LANCZOS)
-            photo = ImageTk.PhotoImage(img)
 
             def apply_thumbnail():
                 if generation != self._grid_generation or not lbl.winfo_exists():
                     return
+                # PhotoImage creation must happen on Tk's main thread.
+                photo = ImageTk.PhotoImage(img)
                 self._grid_photos[inp] = photo
                 lbl.configure(image=photo)
 
