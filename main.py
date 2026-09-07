@@ -1773,10 +1773,10 @@ class App(ctk.CTk):
         # Atualiza só a célula anterior e a nova
         if self._grid_selected and self._grid_selected in self._grid_cells:
             self._grid_cells[self._grid_selected]["cell"].configure(
-                highlightbackground=C_BORDER
+                border_color=C_BORDER
             )
         if inp in self._grid_cells:
-            self._grid_cells[inp]["cell"].configure(highlightbackground=C_ACCENT)
+            self._grid_cells[inp]["cell"].configure(border_color=C_ACCENT)
         self._grid_selected = inp
 
     def _on_grid_configure(self, e):
