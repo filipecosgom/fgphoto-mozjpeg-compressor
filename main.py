@@ -10,6 +10,7 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -1624,16 +1625,25 @@ class App(ctk.CTk):
             self._resize_px_entry.configure(state="disabled")
 
     def _output_path(self, inp: Path, quality: int) -> Path:
-        """Build an output path from the current suffix mode and image location."""
+        """Build and validate an output path inside the export directory."""
         mode = self._suf_mode.get()
         if mode == "custom":
             suffix = self._suf_entry.get().strip() or f"_compressed_{quality}"
+            if not re.fullmatch(r"[A-Za-z0-9._-]+", suffix):
+                raise ValueError(
+                    "Custom suffix may contain only letters, numbers, dots, "
+                    "underscores, and hyphens."
+                )
             filename = f"{inp.stem}{suffix}.jpg"
         elif mode == "none":
             filename = f"{inp.stem}.jpg"
         else:
             filename = f"{inp.stem}_compressed_{quality}.jpg"
-        return self._source_dir / EXPORT_FOLDER / inp.relative_to(self._source_dir).parent / filename
+        export_dir = (self._source_dir / EXPORT_FOLDER).resolve()
+        output = (export_dir / inp.relative_to(self._source_dir).parent / filename).resolve()
+        if output != export_dir and export_dir not in output.parents:
+            raise ValueError("The output path must remain inside the export folder.")
+        return output
 
     def _toggle_view(self):
         """Switch between the tree list and thumbnail grid views."""
@@ -1860,9 +1870,15 @@ class App(ctk.CTk):
         )
 
         quality = self._settings.get()["quality"]
-        self._tasks = []
-        for f in files:
-            self._tasks.append((f, self._output_path(f, quality)))
+        try:
+            self._tasks = [
+                (file_path, self._output_path(file_path, quality))
+                for file_path in files
+            ]
+        except ValueError as exc:
+            self._tasks = []
+            messagebox.showerror("Invalid suffix", str(exc))
+            return
 
         self._results = {}
         
@@ -1924,9 +1940,13 @@ class App(ctk.CTk):
             return
 
         quality = self._settings.get()["quality"]
-        self._tasks = [
-            (inp, self._output_path(inp, quality)) for inp, _ in self._tasks
-        ]
+        try:
+            self._tasks = [
+                (inp, self._output_path(inp, quality)) for inp, _ in self._tasks
+            ]
+        except ValueError as exc:
+            messagebox.showerror("Invalid suffix", str(exc))
+            return
 
         # Keep only selected files whose outputs do not already exist.
         active = [
