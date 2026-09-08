@@ -307,6 +307,22 @@ def find_cjpeg() -> Path | None:
     which = shutil.which("cjpeg")
     return Path(which) if which else None
 
+def find_duplicate_output_paths(tasks: list[tuple[Path, Path]]) -> list[Path]:
+    """Return output paths assigned to more than one input file.
+
+    ``normcase`` makes the comparison case-insensitive on Windows, where
+    ``Photo.jpg`` and ``photo.jpg`` refer to the same directory entry.
+    """
+    seen: set[str] = set()
+    duplicates: set[Path] = set()
+    for _, output in tasks:
+        key = os.path.normcase(str(output.resolve()))
+        if key in seen:
+            duplicates.add(output)
+        else:
+            seen.add(key)
+    return sorted(duplicates)
+
 
 # ─── Tooltip ─────────────────────────────────────────────────────────────────
 
@@ -1919,6 +1935,18 @@ class App(ctk.CTk):
         except ValueError as exc:
             self._tasks = []
             messagebox.showerror("Invalid suffix", str(exc))
+            return
+
+        duplicate_outputs = find_duplicate_output_paths(self._tasks)
+        if duplicate_outputs:
+            self._tasks = []
+            names = "\n".join(f"- {path.name}" for path in duplicate_outputs)
+            messagebox.showerror(
+                "Duplicate output names",
+                "Multiple input files would overwrite the same output:\n\n"
+                f"{names}\n\n"
+                "Choose a different suffix or remove the duplicate input names.",
+            )
             return
 
         self._results = {}
