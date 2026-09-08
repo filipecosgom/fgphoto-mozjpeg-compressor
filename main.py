@@ -1124,6 +1124,7 @@ class App(ctk.CTk):
         self._iid_to_inp: dict[str, Path] = {}  # iid → input
         self._results: dict[Path, dict] = {}
         self._worker: Compressor | None = None
+        self._batch_source_dir: Path | None = None
         # Files currently marked for compression.
         self._selected_files: set[Path] = set()
 
@@ -1173,7 +1174,7 @@ class App(ctk.CTk):
             anchor="w",
         )
         self._folder_lbl.pack(side="left", fill="x", expand=True)
-        ctk.CTkButton(
+        self._browse_btn = ctk.CTkButton(
             frow,
             text="📁",
             width=30,
@@ -1183,7 +1184,8 @@ class App(ctk.CTk):
             text_color=C_TEXT,
             font=("Segoe UI", 12),
             command=self._browse,
-        ).pack(side="right")
+        )
+        self._browse_btn.pack(side="right")
 
         rec_row = ctk.CTkFrame(mid, fg_color="transparent")
         rec_row.pack(fill="x", padx=10, pady=(2, 6))
@@ -2060,6 +2062,8 @@ class App(ctk.CTk):
         self._btn_start.configure(state="disabled")
         self._btn_stop.configure(state="normal")
         self._btn_scan.configure(state="disabled")
+        self._batch_source_dir = self._source_dir
+        self._browse_btn.configure(state="disabled")
         settings = self._settings.get()
         rv = self._resize_var.get()
         if rv == "Do not resize":
@@ -2275,6 +2279,7 @@ class App(ctk.CTk):
         self._btn_start.configure(state="normal")
         self._btn_stop.configure(state="disabled")
         self._btn_scan.configure(state="normal")
+        self._browse_btn.configure(state="normal")
 
         done = sum(1 for r in self._results.values() if r["status"] == "done")
         errs = sum(1 for r in self._results.values() if r["status"] == "error")
@@ -2300,10 +2305,11 @@ class App(ctk.CTk):
                 text="No files processed.", text_color=C_MUTED
             )
 
-        if self._open_export.get() and self._source_dir and done:
-            export_dir = self._source_dir / EXPORT_FOLDER
+        if self._open_export.get() and self._batch_source_dir and done:
+            export_dir = self._batch_source_dir / EXPORT_FOLDER
             if export_dir.exists():
                 os.startfile(export_dir)
+        self._batch_source_dir = None
 
     # ── List selection ─────────────────────────────────────────────────────────
 
