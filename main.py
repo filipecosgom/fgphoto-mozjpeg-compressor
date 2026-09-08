@@ -592,9 +592,16 @@ class Compressor(threading.Thread):
         self.on_progress = on_progress
         self.on_finish = on_finish
         self._stop_event = threading.Event()
+        self._process_lock = threading.Lock()
+        self._active_process: subprocess.Popen | None = None
 
     def stop(self):
+        """Request cancellation and terminate the currently running encoder."""
         self._stop_event.set()
+        with self._process_lock:
+            process = self._active_process
+        if process and process.poll() is None:
+            process.terminate()
 
     def run(self):
         total = len(self.tasks)
@@ -641,7 +648,7 @@ class Compressor(threading.Thread):
             except Exception as e:
                 return {"status": "error", "msg": f"Resize failed: {e}"}
 
-        # ── Comando cjpeg ─────────────────────────────────────────────────────
+        # ── Run cjpeg ─────────────────────────────────────────────────────────
         cmd = [str(self.cjpeg), "-quality", str(q)]
 
         if s.get("progressive"):
@@ -668,11 +675,25 @@ class Compressor(threading.Thread):
 
         try:
             orig_sz = inp.stat().st_size
-            r = subprocess.run(cmd, capture_output=True, timeout=120)
-            if r.returncode != 0:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            with self._process_lock:
+                self._active_process = process
+            try:
+                stdout, stderr = process.communicate(timeout=120)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate()
+                return {"status": "error", "msg": "Timeout (file may be too large)."}
+            if self._stop_event.is_set():
+                return {"status": "stopped", "msg": "Stopped by user."}
+            if process.returncode != 0:
                 return {
                     "status": "error",
-                    "msg": r.stderr.decode(errors="replace").strip()
+                    "msg": stderr.decode(errors="replace").strip()
                     or "Unknown error",
                 }
             comp_sz = out.stat().st_size
@@ -683,11 +704,11 @@ class Compressor(threading.Thread):
                 "pct": (1 - comp_sz / orig_sz) * 100,
                 "out": out,
             }
-        except subprocess.TimeoutExpired:
-            return {"status": "error", "msg": "Timeout (file may be too large)."}
         except Exception as e:
             return {"status": "error", "msg": str(e)}
         finally:
+            with self._process_lock:
+                self._active_process = None
             if tmp_path and tmp_path.exists():
                 tmp_path.unlink(missing_ok=True)
 
@@ -1862,6 +1883,8 @@ class App(ctk.CTk):
             c["status"].configure(text=f"✓ −{result['pct']:.1f}%", fg=C_OK)
         elif result["status"] == "error":
             c["status"].configure(text="✗ Erro", fg=C_ERR)
+        elif result["status"] == "stopped":
+            c["status"].configure(text="Stopped", fg=C_MUTED)
 
     def _scan(self):
         """Discover source images and create the initial task/output-path list."""
@@ -2171,6 +2194,23 @@ class App(ctk.CTk):
                     "Error",
                 ),
                 tags=("error",),
+            )
+        elif result["status"] == "stopped":
+            try:
+                orig_sz = fmt_size(inp.stat().st_size)
+            except OSError:
+                orig_sz = "?"
+            self._tree.item(
+                iid,
+                values=(
+                    "",
+                    inp.name,
+                    orig_sz,
+                    "—",
+                    "—",
+                    "Stopped",
+                ),
+                tags=("skipped",),
             )
 
         if self._view_mode == "grid":
