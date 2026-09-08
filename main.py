@@ -18,6 +18,13 @@ import requests
 import tempfile
 from pathlib import Path
 from PIL import Image, ImageTk
+from mozjpeg_security import (
+    MAX_DOWNLOAD_BYTES,
+    normalize_sha256,
+    validate_release_asset_url,
+    validate_zip_members,
+    verify_sha256,
+)
 
 # ─── Global configuration ─────────────────────────────────────────────────────
 
@@ -111,6 +118,7 @@ def get_latest_windows_mozjpeg_asset():
                 release.get("tag_name", "unknown"),
                 asset["name"],
                 asset["browser_download_url"],
+                asset.get("digest"),
             )
 
     raise RuntimeError(
@@ -416,7 +424,7 @@ class DownloadWindow(ctk.CTkToplevel):
         if val is not None:
             self._bar.set(max(0.0, min(1.0, val)))
 
-    def _download(self, url: str, destination: Path):
+    def _download(self, url: str, destination: Path, expected_digest: str):
         """Stream a release asset to disk and report progress on the UI thread."""
         headers = {"User-Agent": "MozJPEGCompressor/1.0"}
         with requests.get(url, stream=True, timeout=90, headers=headers) as r:
@@ -426,6 +434,8 @@ class DownloadWindow(ctk.CTkToplevel):
                 total = int(total_header) if total_header else 0
             except ValueError:
                 total = 0
+            if total > MAX_DOWNLOAD_BYTES:
+                raise RuntimeError("The MozJPEG download exceeds the allowed size.")
 
             done = 0
             with destination.open("wb") as f:
@@ -433,11 +443,16 @@ class DownloadWindow(ctk.CTkToplevel):
                     if chunk:
                         f.write(chunk)
                         done += len(chunk)
+                        if done > MAX_DOWNLOAD_BYTES:
+                            raise RuntimeError(
+                                "The MozJPEG download exceeds the allowed size."
+                            )
                         if total:
                             self.after(0, self._bar.set, min(0.80, done / total * 0.80))
 
         if destination.stat().st_size == 0:
             raise RuntimeError("The MozJPEG download produced an empty file.")
+        verify_sha256(destination, expected_digest)
 
     def _install_asset(self, asset_path: Path, asset_name: str) -> Path:
         """Install an EXE or extract a ZIP, returning the managed cjpeg path."""
@@ -451,6 +466,7 @@ class DownloadWindow(ctk.CTkToplevel):
             extract_dir.mkdir(parents=True, exist_ok=True)
 
             try:
+                validate_zip_members(asset_path)
                 _safe_extract_zip(asset_path, extract_dir)
                 found = _find_cjpeg_in_directory(extract_dir)
                 if not found:
@@ -497,7 +513,9 @@ class DownloadWindow(ctk.CTkToplevel):
                 return
 
             self.after(0, self._set, "Searching for the latest Windows version...", 0.05)
-            tag, asset_name, url = get_latest_windows_mozjpeg_asset()
+            tag, asset_name, url, digest = get_latest_windows_mozjpeg_asset()
+            validate_release_asset_url(url, tag, asset_name)
+            expected_digest = normalize_sha256(digest)
             self.after(
                 0,
                 self._set,
@@ -509,7 +527,7 @@ class DownloadWindow(ctk.CTkToplevel):
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
                 tmp = Path(f.name)
 
-            self._download(url, tmp)
+            self._download(url, tmp, expected_digest)
 
             self.after(0, self._set, "Installing and verifying MozJPEG...", 0.85)
             self._install_asset(tmp, asset_name)

@@ -52,6 +52,7 @@ git checkout -b fix/your-bug-fix-name
 ```
 
 Branch naming convention:
+
 - `feature/` — New features
 - `fix/` — Bug fixes
 - `docs/` — Documentation updates
@@ -75,6 +76,7 @@ Optional longer explanation of what changed and why."
 ```
 
 Commit message format:
+
 - Use imperative mood ("Add feature" not "Added feature")
 - Keep first line under 50 characters
 - Reference related issues: "Fixes #123"
@@ -88,6 +90,7 @@ git push origin feature/your-feature-name
 #### 7. Open a Pull Request
 
 On GitHub:
+
 1. Compare your branch to `master`
 2. Fill in the PR description:
    - What problem does this solve?
@@ -110,7 +113,7 @@ Once approved, your PR will be merged into `master` and released in the next ver
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.10+
 - Git
 
 ### Installation
@@ -145,11 +148,23 @@ python main.py
 ### Testing
 
 Before submitting a PR, test:
+
 - [ ] Application starts without errors
 - [ ] File browsing works
 - [ ] Compression completes successfully
 - [ ] Preview displays correctly
 - [ ] No crashes with edge cases
+
+Run the automated checks from the repository root:
+
+```bash
+python -m unittest discover -v
+python -m compileall -q .
+```
+
+Security-sensitive changes should include tests for URL validation, digest
+verification, path traversal, archive limits, and any new filesystem boundary.
+Do not execute downloaded installers as part of automated tests.
 
 ## Documentation
 
@@ -160,6 +175,7 @@ Help improve the docs:
 - **CHANGELOG.md** - Release notes and version history
 - **Code comments** - Inline explanations of complex logic
 - **Docstrings** - Function and class documentation
+- **mozjpeg_security.py** - Download and archive trust-boundary checks
 
 ## Questions?
 

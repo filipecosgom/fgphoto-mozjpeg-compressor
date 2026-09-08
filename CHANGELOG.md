@@ -5,9 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Security verification module for MozJPEG release URLs and SHA-256 digests
+- Download-size and ZIP archive safety limits
+- Automated tests for release validation, digest checks, and archive traversal
+
+### Changed
+
+- MozJPEG installation now discovers compatible official releases dynamically
+- Thumbnail `PhotoImage` creation is kept on Tk's main thread
+- Custom output suffixes are validated and constrained to the export directory
+- Application interface and developer documentation are written in English
+
 ## [1.0.0] - 2026-04-28
 
 ### Added
+
 - Initial release of MozJPEG Compressor
 - Modern dark-themed GUI using customtkinter
 - Batch compression support for JPEG and PNG images
@@ -27,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 
 ### Components
+
 - **Tooltip System** - Hover help for all compression controls
 - **DownloadWindow** - Auto-install MozJPEG with progress tracking
 - **Compressor Thread** - Background processing worker with resize support

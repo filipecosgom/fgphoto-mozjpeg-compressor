@@ -25,7 +25,7 @@ A modern, lightweight GUI application for batch-compressing JPEG and PNG images 
   - Grayscale conversion
   - Quantization tables
   - Smoothing filters
-- **Automatic Setup** — Auto-download and install MozJPEG v4.1.5
+- **Automatic Setup** — Discover, verify, and install a compatible MozJPEG release
 - **Statistics** — Track space saved and compression ratios
 - **Organized Output** — Maintains folder structure in export directory
 - **Recursive Scan** — Process subdirectories with hierarchy preservation
@@ -34,7 +34,7 @@ A modern, lightweight GUI application for batch-compressing JPEG and PNG images 
 ## 📋 Requirements
 
 - **Windows 7 or higher** (64-bit)
-- **Python 3.8 or higher**
+- **Python 3.10 or higher**
 - Internet connection (first-time setup only for MozJPEG download)
 
 ## 🚀 Quick Start
@@ -86,6 +86,7 @@ python main.py
 ### Example Folder Structure
 
 **Before:**
+
 ```
 Photos/
 ├─ 2024/
@@ -96,6 +97,7 @@ Photos/
 ```
 
 **After compression (Quality 80):**
+
 ```
 Photos/export/
 ├─ 2024/
@@ -108,35 +110,42 @@ Photos/export/
 ## ⚙️ Compression Settings
 
 ### Quality (0-100)
+
 - **75-85** — Sweet spot for web delivery (recommended)
 - **90+** — High fidelity, larger files
 - **<60** — Visible artifacts
 - MozJPEG typically saves 10-20% vs standard JPEG
 
 ### Progressive JPEG
+
 Images load gradually in browsers (low-quality preview first). Recommended for web.
 
 ### Chroma Subsampling
+
 - **4:2:0 (2x2)** — Smaller files, minimal quality loss (default, recommended)
 - **4:2:2 (2x1)** — Balanced approach
 - **4:4:4 (1x1)** — Maximum fidelity, larger files
 
 ### Image Resizing
+
 Reduce dimensions before compression, preserving aspect ratio:
+
 - 75%, 50%, 25% of original size
 - Custom pixel value for longest edge
-Example: 2000px max → 6000×4000 → 2000×1333
+  Example: 2000px max → 6000×4000 → 2000×1333
 
 ### Other Options
-| Option | Effect |
-|--------|--------|
-| **Huffman Optimization** | 3-5% size reduction, no quality loss |
-| **Grayscale Conversion** | Remove all color information |
-| **DCT Method** | `int` (recommended), `float`, or `fast` |
-| **Quantization Table** | 0 (standard), 1 (MozJPEG optimized, recommended) |
-| **Smoothing** | Reduce sensor noise before compression |
+
+| Option                   | Effect                                           |
+| ------------------------ | ------------------------------------------------ |
+| **Huffman Optimization** | 3-5% size reduction, no quality loss             |
+| **Grayscale Conversion** | Remove all color information                     |
+| **DCT Method**           | `int` (recommended), `float`, or `fast`          |
+| **Quantization Table**   | 0 (standard), 1 (MozJPEG optimized, recommended) |
+| **Smoothing**            | Reduce sensor noise before compression           |
 
 ### Advanced Options
+
 - **Minimum File Size** — Skip files below threshold (default: 100 KB)
 - **Output Naming** — Auto suffix, custom prefix, or original name
 - **Recursive Processing** — Include subdirectories
@@ -145,23 +154,27 @@ Example: 2000px max → 6000×4000 → 2000×1333
 ## 🐛 Troubleshooting
 
 ### MozJPEG Installation Fails
+
 1. Download manually: https://github.com/mozilla/mozjpeg/releases
 2. Install to `C:\Program Files\Mozilla\MozJPEG\`
 3. Restart the application
 
 ### Compression Fails for Specific Files
+
 - Verify file is valid JPEG or PNG
 - Check if file is corrupted
 - Try with quality ≥ 50
 - Check available disk space
 
 ### Slow Thumbnail Loading
+
 - Reduce number of files
 - Use image resizing before compression
 - Increase minimum file size threshold
 - Enable batch mode for faster processing
 
 ### Application Freezes
+
 - Compression is multi-threaded but large batches take time
 - Reduce quality if processing hangs
 - Watch the progress bar at the top
@@ -191,7 +204,22 @@ Example: 2000px max → 6000×4000 → 2000×1333
 - All processing is local
 - EXIF data removed during compression
 - No telemetry or tracking
+- MozJPEG assets are restricted to official GitHub release URLs
+- Downloaded assets require SHA-256 verification before installation
+- Downloads and ZIP extraction have size and path-traversal protections
 - Open source — audit the code anytime
+
+## 🧪 Testing
+
+Run the security tests and compile checks from the repository root:
+
+```bash
+python -m unittest discover -v
+python -m compileall -q .
+```
+
+The tests cover release URL validation, SHA-256 verification, ZIP path traversal,
+and archive resource limits. The installer itself is not executed by the tests.
 
 ## 📄 License
 
@@ -200,6 +228,7 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fi
 ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+
 - Reporting bugs
 - Requesting features
 - Submitting pull requests
